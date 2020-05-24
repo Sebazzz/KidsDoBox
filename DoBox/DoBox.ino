@@ -150,40 +150,15 @@ class FadingLight {
       Serial.write(String(pos).c_str());
       Serial.write("\n");
     }
-
-    
 };
 
-// Globals
-FlashyLight blackLightDigital(PIN_SW_BLACK_LIGHT_DIGITAL, 200, true);
-FlashyLight majorRedLeftLight(PIN_SW_MAJOR_RED_LEFT_LIGHT_DIGITAL, 150, true);
-FlashyLight majorRedRightLight(PIN_SW_MAJOR_RED_RIGHT_LIGHT_DIGITAL, 150, false);
-FlashyLight yellowLeftRight(PIN_SW_BLACK_ON_OFF_LIGHT_YELLOW, 400, true);
-
-FadingLight blueLight(PIN_SW_BLACK_ON_OFF_LIGHT_BLUE, 500, true);
-
-Servo smileyServo;
-
-void setup() {
-  // DBG
-  Serial.begin(9600);
-  Serial.write("Hello world - kids do-box v1.0\n");
-  Serial.write("\n");
-  Serial.write("Initialization...\n");
-
-  // RNG
-  Serial.write("... RNG\n");
-  unsigned long rngSeed = analogRead(PIN_SW_BORING_BLACK_ANALOG) /* This value floats and is random*/;
-  randomSeed(rngSeed);
-  
-  // Pins
-  Serial.write("... pin modes\n");
-  pinMode(PIN_OUT_PIEZO_DIGITAL, OUTPUT);
-
-  smileyServo.attach(9);
-
-  Serial.write("Done!\n");
-  Serial.write("\n");
+// Helper functions
+void dbgInt(const char* prefix, int val) {
+  Serial.write("[");
+  Serial.write(prefix);
+  Serial.write("]");
+  Serial.write(String(val).c_str());
+  Serial.write("\n");  
 }
 
 bool isBoringBlackAnalogPressed() {
@@ -207,14 +182,41 @@ bool isMainRedShieldedPressed() {
   return PIN_SW_MAJOR_RED_SHIELDED_CONN_VALUE < analogRead(PIN_SW_MAJOR_RED_SHIELDED_ANALOG);
 }
 
-void dbgInt(const char* prefix, int val) {
-  Serial.write("[");
-  Serial.write(prefix);
-  Serial.write("]");
-  Serial.write(String(val).c_str());
-  Serial.write("\n");  
+// Globals
+FlashyLight blackLightDigital(PIN_SW_BLACK_LIGHT_DIGITAL, 200, true);
+FlashyLight majorRedLeftLight(PIN_SW_MAJOR_RED_LEFT_LIGHT_DIGITAL, 150, true);
+FlashyLight majorRedRightLight(PIN_SW_MAJOR_RED_RIGHT_LIGHT_DIGITAL, 150, false);
+FlashyLight yellowLeftRight(PIN_SW_BLACK_ON_OFF_LIGHT_YELLOW, 400, true);
+
+FadingLight blueLight(PIN_SW_BLACK_ON_OFF_LIGHT_BLUE, 500, true);
+
+Servo smileyServo;
+
+// --------- SETUP
+
+void setup() {
+  // DBG
+  Serial.begin(9600);
+  Serial.write("Hello world - kids do-box v1.0\n");
+  Serial.write("\n");
+  Serial.write("Initialization...\n");
+
+  // RNG
+  Serial.write("... RNG\n");
+  unsigned long rngSeed = analogRead(PIN_SW_BORING_BLACK_ANALOG) /* This value floats and is random*/;
+  randomSeed(rngSeed);
+  
+  // Pins
+  Serial.write("... pin modes\n");
+  pinMode(PIN_OUT_PIEZO_DIGITAL, OUTPUT);
+
+  smileyServo.attach(9);
+
+  Serial.write("Done!\n");
+  Serial.write("\n");
 }
 
+// ---------- LOOP
 void updateCommonItems() {
   blackLightDigital.update();
   
