@@ -182,6 +182,10 @@ bool isMainRedShieldedPressed() {
   return PIN_SW_MAJOR_RED_SHIELDED_CONN_VALUE < analogRead(PIN_SW_MAJOR_RED_SHIELDED_ANALOG);
 }
 
+void tone_s(int pitch, int durationMs) {
+  tone(PIN_OUT_PIEZO_DIGITAL, pitch, durationMs);
+}
+
 // Globals
 FlashyLight blackLightDigital(PIN_SW_BLACK_LIGHT_DIGITAL, 200, true);
 FlashyLight majorRedLeftLight(PIN_SW_MAJOR_RED_LEFT_LIGHT_DIGITAL, 150, true);
@@ -235,7 +239,7 @@ void loop() {
   if (isBoringBlackAnalogPressed()) {
     Serial.write("Biep biep richie!");
     int pitch = random(50, 4000);
-    tone(PIN_OUT_PIEZO_DIGITAL, pitch, 250);
+    tone_s(pitch, 250);
 
     smileyServo.write(180);
   }
@@ -246,17 +250,17 @@ void loop() {
     majorRedRightLight.enable();
 
     smileyServo.write(0);
-    tone(PIN_OUT_PIEZO_DIGITAL, 2000, 250);
+    tone_s(2000, 250);
     loopDelay(250, [](void*) { updateCommonItems(); });
     
-    tone(PIN_OUT_PIEZO_DIGITAL, 4000, 250);
+    tone_s(4000, 250);
     loopDelay(250, [](void*) { updateCommonItems(); });
     smileyServo.write(180);
     
-    tone(PIN_OUT_PIEZO_DIGITAL, 200, 250);
+    tone_s(200, 250);
     loopDelay(250, [](void*) { updateCommonItems(); });
     
-    tone(PIN_OUT_PIEZO_DIGITAL, 4000, 250);
+    tone_s(4000, 250);
     loopDelay(250, [](void*) { updateCommonItems(); });
   }
 
@@ -264,7 +268,7 @@ void loop() {
   majorRedRightLight.disable();
 
   if (isBlackSwitchWithLightSwitchedOn()) {
-    tone(PIN_OUT_PIEZO_DIGITAL, 1000, 250);
+    tone_s(1000, 250);
     blackLightDigital.enable();
     smileyServo.write(90);
   } else {
