@@ -10,14 +10,29 @@ const int PIN_SW_BLACK_ON_OFF_SWITCH_ANALOG = 3;
 
 const int PIN_SW_BLACK_LIGHT_DIGITAL = 4;
 
+const int PIN_SW_MAJOR_RED_LEFT_LIGHT_DIGITAL = 7;
+const int PIN_SW_MAJOR_RED_RIGHT_LIGHT_DIGITAL = 2;
+
 // Outputs
 const int PIN_OUT_PIEZO_DIGITAL = 8;
+
+typedef void (*loopingDelayCallback)(void*);
+
+void loopDelay(int milliseconds, loopingDelayCallback callback, void* ctx = nullptr) {
+  unsigned long targetTime = millis() + milliseconds;
+
+  do {
+    callback(ctx);
+    delay(25);
+  } while (targetTime < millis());
+}
 
 class FlashyLight {
   private:
     int m_pin;
     unsigned long m_toggleTime;
     unsigned long m_lastTime;
+    bool m_state_initial;
     bool m_state;
     bool m_enabled;
 
@@ -26,11 +41,9 @@ class FlashyLight {
     }
  
   public:
-    FlashyLight(int pin, int toggleTime, bool isOnInitially): m_pin(pin), m_toggleTime(toggleTime), m_state(isOnInitially) {
+    FlashyLight(int pin, int toggleTime, bool isOnInitially): m_pin(pin), m_toggleTime(toggleTime), m_state_initial(isOnInitially) {
       this->m_enabled = false;
-
       pinMode(pin, OUTPUT);
-      this->do_output();
     }
 
     void enable() {
@@ -40,10 +53,16 @@ class FlashyLight {
       
       this->m_lastTime = millis();
       this->m_enabled = true;
+      this->m_state = this->m_state_initial;
+
+      this->do_output();
     }
 
     void disable() {
       this->m_enabled = false;
+      this->m_state = false;
+
+      this->do_output();
     }
 
     void update() {
@@ -63,7 +82,9 @@ class FlashyLight {
 };
 
 // Globals
-FlashyLight blackLightDigital(PIN_SW_BLACK_LIGHT_DIGITAL, 200, false);
+FlashyLight blackLightDigital(PIN_SW_BLACK_LIGHT_DIGITAL, 200, true);
+FlashyLight majorRedLeftLight(PIN_SW_MAJOR_RED_LEFT_LIGHT_DIGITAL, 150, true);
+FlashyLight majorRedRightLight(PIN_SW_MAJOR_RED_RIGHT_LIGHT_DIGITAL, 150, false);
 
 void setup() {
   // DBG
@@ -116,6 +137,9 @@ void dbgInt(const char* prefix, int val) {
 
 void updateCommonItems() {
   blackLightDigital.update();
+  
+  majorRedLeftLight.update();
+  majorRedRightLight.update();
 }
 
 void loop() {
@@ -130,18 +154,25 @@ void loop() {
   }
 
   while (isMainRedShieldedPressed()) {
-    Serial.write("Emergency!");
+    Serial.write("Emergency!\n");
+    majorRedLeftLight.enable();
+    majorRedRightLight.enable();
+    
     tone(PIN_OUT_PIEZO_DIGITAL, 2000, 250);
-    delay(250);
+    loopDelay(250, [](void*) { updateCommonItems(); });
+    
     tone(PIN_OUT_PIEZO_DIGITAL, 4000, 250);
-    delay(250);
-    tone(PIN_OUT_PIEZO_DIGITAL, 2000, 250);
-    delay(250);
+    loopDelay(250, [](void*) { updateCommonItems(); });
+    
+    tone(PIN_OUT_PIEZO_DIGITAL, 200, 250);
+    loopDelay(250, [](void*) { updateCommonItems(); });
+    
     tone(PIN_OUT_PIEZO_DIGITAL, 4000, 250);
-    delay(250);
-
-    updateCommonItems();
+    loopDelay(250, [](void*) { updateCommonItems(); });
   }
+
+  majorRedLeftLight.disable();
+  majorRedRightLight.disable();
 
   if (isBlackSwitchWithLightSwitchedOn()) {
     tone(PIN_OUT_PIEZO_DIGITAL, 1000, 250);
