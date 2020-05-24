@@ -22,6 +22,10 @@ const int PIN_SW_BLACK_ON_OFF_LIGHT_BLUE = 11;
 // Outputs
 const int PIN_OUT_PIEZO_DIGITAL = 8;
 
+// Run-time options
+bool silentMode = false;
+
+// Helper functions and classes
 typedef void (*loopingDelayCallback)(void*);
 
 void loopDelay(int milliseconds, loopingDelayCallback callback, void* ctx = nullptr) {
@@ -171,7 +175,7 @@ bool isBlackOnOffSwitchSwitched() {
 }
 
 bool isBlackSwitchWithLightSwitchedOn() {
-  dbgInt("B_WITH_LIGHT", analogRead(PIN_SW_BLACK_W_LIGHT_ANALOG));
+  //dbgInt("B_WITH_LIGHT", analogRead(PIN_SW_BLACK_W_LIGHT_ANALOG));
   return PIN_ANALOG_CONN_VALUE < analogRead(PIN_SW_BLACK_W_LIGHT_ANALOG);
 }
 
@@ -183,6 +187,8 @@ bool isMainRedShieldedPressed() {
 }
 
 void tone_s(int pitch, int durationMs) {
+  if (silentMode) return;
+  
   tone(PIN_OUT_PIEZO_DIGITAL, pitch, durationMs);
 }
 
@@ -197,6 +203,50 @@ FadingLight blueLight(PIN_SW_BLACK_ON_OFF_LIGHT_BLUE, 500, true);
 Servo smileyServo;
 
 // --------- SETUP
+
+bool acceptSetupOption(unsigned long delayMs) {
+  const int confirmPin = PIN_SW_BLACK_ON_OFF_LIGHT_BLUE;
+  const int toolatePin = PIN_SW_MAJOR_RED_RIGHT_LIGHT_DIGITAL;
+  const int pollPin = PIN_SW_BLACK_ON_OFF_LIGHT_YELLOW;
+  bool (*confirmButtonCheck)(void) = isBoringBlackAnalogPressed;
+
+  const unsigned long startTime = millis();
+  bool result = false; 
+
+  do {
+    const unsigned long currentTime = millis();
+
+    digitalWrite(pollPin, ((currentTime % 1000) < 500) ? HIGH : LOW);
+    
+    if ((currentTime - startTime) > delayMs) {
+      result = false;
+      digitalWrite(toolatePin, HIGH);
+
+      Serial.write("\tOption not confirmed after delay at: ");
+      Serial.write(String(currentTime).c_str());
+      Serial.write("ms\n");
+      break;
+    }
+
+    if (confirmButtonCheck()) {
+      result = true;
+      digitalWrite(confirmPin, HIGH);
+      
+      Serial.write("\tOption confirmed at: ");
+      Serial.write(String(currentTime).c_str());
+      Serial.write("ms\n");
+      break;
+    }
+  } while (true);
+
+  digitalWrite(pollPin, LOW);
+  delay(2000);
+
+  digitalWrite(toolatePin, LOW);
+  digitalWrite(confirmPin, LOW);
+
+  return result;
+}
 
 void setup() {
   // DBG
@@ -215,6 +265,13 @@ void setup() {
   pinMode(PIN_OUT_PIEZO_DIGITAL, OUTPUT);
 
   smileyServo.attach(9);
+
+  // Input options
+  Serial.write("... accepting startup options\n");
+  silentMode = acceptSetupOption(5000);
+  Serial.write("\tSilent mode: ");
+  Serial.write(silentMode ? "Enabled" : "Disabled");
+  Serial.write("\n");
 
   Serial.write("Done!\n");
   Serial.write("\n");
@@ -273,7 +330,7 @@ void loop() {
     smileyServo.write(90);
   } else {
     blackLightDigital.disable();
-    smileyServo.write(0);
+    if (!isBoringBlackAnalogPressed()) smileyServo.write(0);
   }
 
   if (isBlackOnOffSwitchSwitched()) {
