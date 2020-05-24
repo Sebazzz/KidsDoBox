@@ -24,9 +24,11 @@ const int PIN_OUT_PIEZO_DIGITAL = 8;
 
 // Run-time options
 bool silentMode = false;
+bool lowTrebleMode = false;
 
 // Helper functions and classes
 typedef void (*loopingDelayCallback)(void*);
+typedef bool (*setupOptionButtonChecker)(void);
 
 void loopDelay(int milliseconds, loopingDelayCallback callback, void* ctx = nullptr) {
   unsigned long targetTime = millis() + milliseconds;
@@ -188,6 +190,10 @@ bool isMainRedShieldedPressed() {
 
 void tone_s(int pitch, int durationMs) {
   if (silentMode) return;
+
+  if (lowTrebleMode) {
+     pitch = map(pitch, 40, 4000, 30, 500);
+  }
   
   tone(PIN_OUT_PIEZO_DIGITAL, pitch, durationMs);
 }
@@ -204,14 +210,13 @@ Servo smileyServo;
 
 // --------- SETUP
 
-bool acceptSetupOption(unsigned long delayMs) {
+int acceptSetupOption(unsigned long delayMs, setupOptionButtonChecker checkers[], int sz_checkers) {
   const int confirmPin = PIN_SW_BLACK_ON_OFF_LIGHT_BLUE;
   const int toolatePin = PIN_SW_MAJOR_RED_RIGHT_LIGHT_DIGITAL;
   const int pollPin = PIN_SW_BLACK_ON_OFF_LIGHT_YELLOW;
-  bool (*confirmButtonCheck)(void) = isBoringBlackAnalogPressed;
 
   const unsigned long startTime = millis();
-  bool result = false; 
+  int result = -1; 
 
   do {
     const unsigned long currentTime = millis();
@@ -219,7 +224,7 @@ bool acceptSetupOption(unsigned long delayMs) {
     digitalWrite(pollPin, ((currentTime % 1000) < 500) ? HIGH : LOW);
     
     if ((currentTime - startTime) > delayMs) {
-      result = false;
+      result = -1;
       digitalWrite(toolatePin, HIGH);
 
       Serial.write("\tOption not confirmed after delay at: ");
@@ -228,17 +233,21 @@ bool acceptSetupOption(unsigned long delayMs) {
       break;
     }
 
-    if (confirmButtonCheck()) {
-      result = true;
-      digitalWrite(confirmPin, HIGH);
-      
-      Serial.write("\tOption confirmed at: ");
-      Serial.write(String(currentTime).c_str());
-      Serial.write("ms\n");
-      break;
+    for (int index = 0; index < sz_checkers; index++) {
+      const setupOptionButtonChecker currentChecker = checkers[index];
+      if (currentChecker()) {
+        result = (int) index;
+        digitalWrite(confirmPin, HIGH);
+        
+        Serial.write("\tOption confirmed at: ");
+        Serial.write(String(currentTime).c_str());
+        Serial.write("ms\n");
+        goto done; // Break out of nested loop, I think for this project a goto is acceptable :)
+      }
     }
   } while (true);
 
+done:
   digitalWrite(pollPin, LOW);
   delay(2000);
 
@@ -268,11 +277,24 @@ void setup() {
 
   // Input options
   Serial.write("... accepting startup options\n");
-  silentMode = acceptSetupOption(5000);
-  Serial.write("\tSilent mode: ");
-  Serial.write(silentMode ? "Enabled" : "Disabled");
-  Serial.write("\n");
 
+  // ... Silent or low treble mode
+  {
+      setupOptionButtonChecker checkers[2] = { isBoringBlackAnalogPressed, isBlackSwitchWithLightSwitchedOn };
+      
+      int optionIndex = acceptSetupOption(5000, checkers, 2);
+      silentMode = optionIndex == 0;
+      lowTrebleMode = optionIndex == 1;
+      
+      Serial.write("\tSilent mode: ");
+      Serial.write(silentMode ? "Enabled" : "Disabled");
+      Serial.write("\n");
+
+      Serial.write("\tLow threble mode: ");
+      Serial.write(lowTrebleMode ? "Enabled" : "Disabled");
+      Serial.write("\n");
+  }
+  
   Serial.write("Done!\n");
   Serial.write("\n");
 }
