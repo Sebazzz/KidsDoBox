@@ -8,8 +8,62 @@ const int PIN_SW_MAJOR_RED_SHIELDED_ANALOG = 1;
 const int PIN_SW_BLACK_W_LIGHT_ANALOG = 2;
 const int PIN_SW_BLACK_ON_OFF_SWITCH_ANALOG = 3;
 
+const int PIN_SW_BLACK_LIGHT_DIGITAL = 4;
+
 // Outputs
 const int PIN_OUT_PIEZO_DIGITAL = 8;
+
+class FlashyLight {
+  private:
+    int m_pin;
+    unsigned long m_toggleTime;
+    unsigned long m_lastTime;
+    bool m_state;
+    bool m_enabled;
+
+    void do_output() {
+      digitalWrite(this->m_pin, this->m_state ? HIGH : LOW);
+    }
+ 
+  public:
+    FlashyLight(int pin, int toggleTime, bool isOnInitially): m_pin(pin), m_toggleTime(toggleTime), m_state(isOnInitially) {
+      this->m_enabled = false;
+
+      pinMode(pin, OUTPUT);
+      this->do_output();
+    }
+
+    void enable() {
+      if (this->m_enabled) {
+        return;
+      }
+      
+      this->m_lastTime = millis();
+      this->m_enabled = true;
+    }
+
+    void disable() {
+      this->m_enabled = false;
+    }
+
+    void update() {
+      if (!this->m_enabled) {
+        return;
+      }
+      
+      unsigned long time = millis();
+      unsigned long diff = time - this->m_lastTime;
+
+      if (diff > this->m_toggleTime) {
+        this->m_state = !this->m_state;
+        this->m_lastTime = time;
+        this->do_output();
+      }
+    }
+};
+
+// Globals
+FlashyLight blackLightDigital(PIN_SW_BLACK_LIGHT_DIGITAL, 200, false);
 
 void setup() {
   // DBG
@@ -60,8 +114,14 @@ void dbgInt(const char* prefix, int val) {
   Serial.write("\n");  
 }
 
+void updateCommonItems() {
+  blackLightDigital.update();
+}
+
 void loop() {
   Serial.write("BEGIN LOOP \n");
+
+  updateCommonItems();
   
   if (isBoringBlackAnalogPressed()) {
     Serial.write("Biep biep richie!");
@@ -79,10 +139,15 @@ void loop() {
     delay(250);
     tone(PIN_OUT_PIEZO_DIGITAL, 4000, 250);
     delay(250);
+
+    updateCommonItems();
   }
 
   if (isBlackSwitchWithLightSwitchedOn()) {
     tone(PIN_OUT_PIEZO_DIGITAL, 1000, 250);
+    blackLightDigital.enable();
+  } else {
+    blackLightDigital.disable();
   }
 
   if (isBlackOnOffSwitchSwitched()) {
